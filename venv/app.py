@@ -1,19 +1,7 @@
-"""
-Athan (prayer time) desktop app for Edmonton, AB.
-
-Time source priority for "today":
-  1. A custom schedule you've imported (CSV or JSON), if it covers today.
-  2. The AlAdhan API (https://aladhan.com) — fetched once per day, needs internet.
-  3. Local astronomical calculation (prayer_calc.py) — automatic offline fallback.
-
-Run with:  python app.py
-Package as a standalone .exe with PyInstaller (see README.md).
-"""
-
 import os
 import sys
 import threading
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import customtkinter as ctk
@@ -65,7 +53,7 @@ class AthanApp(ctk.CTk):
         self.custom_schedule_name = ""
         self.today_times = {}
         self._computed_for = None
-        self._last_triggered = None  # (date_str, prayer_name)
+        self._last_triggered = None  
 
         self._build_ui()
         self.refresh_times()
@@ -104,7 +92,6 @@ class AthanApp(ctk.CTk):
                            command=lambda _: self.refresh_times()).grid(
             row=1, column=1, padx=(0, 10), pady=(4, 10), sticky="ew")
 
-        # ----- Prayer time cards (resize with the window) -----
         self.cards_frame = ctk.CTkFrame(self)
         self.cards_frame.grid(row=3, column=0, padx=12, pady=6, sticky="nsew")
         self.card_labels = {}
@@ -125,7 +112,6 @@ class AthanApp(ctk.CTk):
         self.next_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=16, weight="bold"))
         self.next_label.grid(row=4, column=0, pady=(4, 10), sticky="ew")
 
-        # ----- Athan sound controls (Fajr has its own sound) -----
         audio = ctk.CTkFrame(self)
         audio.grid(row=5, column=0, padx=12, pady=6, sticky="ew")
         audio.grid_columnconfigure(1, weight=1)
@@ -154,7 +140,6 @@ class AthanApp(ctk.CTk):
         ctk.CTkButton(audio, text="Test", width=60,
                        command=lambda: self._test_sound("other")).grid(row=2, column=3, padx=(4, 10), pady=(4, 10))
 
-        # ----- Custom schedule import -----
         importer = ctk.CTkFrame(self)
         importer.grid(row=6, column=0, padx=12, pady=(6, 14), sticky="ew")
         importer.grid_columnconfigure(0, weight=1)
@@ -169,7 +154,6 @@ class AthanApp(ctk.CTk):
     def _status_text(self, path):
         return f"{os.path.basename(path)}" if path and os.path.exists(path) else "No sound file set (.wav)"
 
-    # ---------- Audio ----------
     def _pick_audio_file(self, which):
         path = filedialog.askopenfilename(
             title=f"Choose {'Fajr' if which == 'fajr' else 'other prayers'} athan sound (.wav)",
@@ -191,7 +175,6 @@ class AthanApp(ctk.CTk):
             return
         play_sound_file(path)
 
-    # ---------- Custom schedule import ----------
     def _import_schedule(self):
         path = filedialog.askopenfilename(
             title="Import custom prayer times (CSV or JSON)",
@@ -214,7 +197,6 @@ class AthanApp(ctk.CTk):
         self.import_status.configure(text="No custom schedule imported.")
         self.refresh_times()
 
-    # ---------- Prayer time refresh (custom -> online -> local) ----------
     def refresh_times(self):
         today = date.today()
         self._computed_for = today.strftime("%Y-%m-%d")
@@ -252,32 +234,63 @@ class AthanApp(ctk.CTk):
     def _update_next_prayer_label(self):
         if not self.today_times:
             return
+
         now = datetime.now()
         upcoming = None
+
         for name in PRAYER_ORDER:
             info = self.today_times.get(name)
             if not info:
                 continue
-            t = now.replace(hour=info["hour"], minute=info["minute"], second=0, microsecond=0)
+
+            t = now.replace(
+                hour=info["hour"],
+                minute=info["minute"],
+                second=0,
+                microsecond=0
+            )
+
             if t > now:
                 upcoming = (name, t)
                 break
+
         if upcoming is None:
-            self.next_label.configure(text="All prayers passed for today — Fajr is next tomorrow.")
+            fajr = self.today_times.get("Fajr")
+
+            if fajr:
+                fajr_time = now.replace(
+                    hour=fajr["hour"],
+                    minute=fajr["minute"],
+                    second=0,
+                    microsecond=0
+                )
+
+                fajr_time += timedelta(days=1)
+                delta = fajr_time - now
+
+                h, rem = divmod(int(delta.total_seconds()), 3600)
+                m, s = divmod(rem, 60)
+
+                self.next_label.configure(
+                    text=f"Next: Fajr in {h:02d}h {m:02d}m {s:02d}s"
+                )
         else:
             name, t = upcoming
             delta = t - now
+
             h, rem = divmod(int(delta.total_seconds()), 3600)
             m, s = divmod(rem, 60)
-            self.next_label.configure(text=f"Next: {name} in {h:02d}h {m:02d}m {s:02d}s")
 
-    # ---------- Main loop tick ----------
+            self.next_label.configure(
+                text=f"Next: {name} in {h:02d}h {m:02d}m {s:02d}s"
+            )
+
     def _tick(self):
         now = datetime.now()
         today_str = now.strftime("%Y-%m-%d")
 
         if self._computed_for != today_str:
-            self.refresh_times()  # new day -> re-fetch (custom -> online -> local)
+            self.refresh_times()
 
         self._update_next_prayer_label()
 
