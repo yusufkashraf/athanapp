@@ -1390,23 +1390,23 @@ class AthanApp(ctk.CTk):
                 )
             )
 
-def _tick(self):
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
+    def _tick(self):
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
 
     # Recalculate prayer times when
     # the calendar day changes.
-    if self._computed_for != today_str:
-        self.refresh_times()
+        if self._computed_for != today_str:
+            self.refresh_times()
 
-    self._update_next_prayer_label()
+        self._update_next_prayer_label()
 
     # Athan alarms
-    if self.alarms_enabled.get():
-        for name in PRAYER_ORDER:
-            info = self.today_times.get(name)
-            if not info:
-                continue
+        if self.alarms_enabled.get():
+            for name in PRAYER_ORDER:
+                info = self.today_times.get(name)
+                if not info:
+                    continue
 
             prayer_time = now.replace(
                 hour=info["hour"],
@@ -1448,8 +1448,8 @@ def _tick(self):
 
     # Keep running even when the main
     # window is hidden in the tray.
-    self.after(
-        1000,
+        self.after(
+            1000,
         self._tick
     )
 
