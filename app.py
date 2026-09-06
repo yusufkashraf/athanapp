@@ -1390,67 +1390,68 @@ class AthanApp(ctk.CTk):
                 )
             )
 
-    def _tick(self):
-        now = datetime.now()
+def _tick(self):
+    now = datetime.now()
+    today_str = now.strftime("%Y-%m-%d")
 
-        today_str = now.strftime(
-            "%Y-%m-%d"
-        )
+    # Recalculate prayer times when
+    # the calendar day changes.
+    if self._computed_for != today_str:
+        self.refresh_times()
 
-        # Recalculate prayer times when
-        # the calendar day changes.
-        if self._computed_for != today_str:
-            self.refresh_times()
+    self._update_next_prayer_label()
 
-        self._update_next_prayer_label()
+    # Athan alarms
+    if self.alarms_enabled.get():
+        for name in PRAYER_ORDER:
+            info = self.today_times.get(name)
+            if not info:
+                continue
 
-        # Athan alarms
-        if self.alarms_enabled.get():
-            for name in PRAYER_ORDER:
-                info = self.today_times.get(
-                    name
-                )
+            prayer_time = now.replace(
+                hour=info["hour"],
+                minute=info["minute"],
+                second=0,
+                microsecond=0
+            )
 
-                if not info:
-                    continue
+            key = (
+                today_str,
+                name
+            )
 
-                if (
-                    now.hour == info["hour"]
-                    and now.minute == info["minute"]
-                ):
-                    key = (
-                        today_str,
-                        name
-                    )
+            # Play the athan once when the prayer time
+            # has been reached, but only during the
+            # first minute after the scheduled time.
+            if (
+                prayer_time <= now
+                < prayer_time + timedelta(minutes=1)
+            ):
+                if self._last_triggered != key:
+                    self._last_triggered = key
 
-                    # Prevent playing the same athan
-                    # repeatedly during the same minute.
-                    if self._last_triggered != key:
-                        self._last_triggered = key
+                    if name == "Fajr":
+                        path = self.fajr_athan_path
+                    else:
+                        path = self.other_athan_path
 
-                        if name == "Fajr":
-                            path = (
-                                self.fajr_athan_path
-                            )
-                        else:
-                            path = (
-                                self.other_athan_path
-                            )
+                    if (
+                        path
+                        and os.path.exists(path)
+                    ):
+                        play_sound_file(path)
+                    else:
+                        print(
+                            f"[audio] No athan file found for {name}: "
+                            f"{path}"
+                        )
 
-                        if (
-                            path
-                            and os.path.exists(path)
-                        ):
-                            play_sound_file(
-                                path
-                            )
-
-        # Keep running even when the main
-        # window is hidden in the tray.
-        self.after(
-            1000,
-            self._tick
-        )
+    # Keep running even when the main
+    # window is hidden in the tray.
+    self.after(
+        1000,
+        self._tick
+    )
 
     def check_for_updates(self):
         def worker():
