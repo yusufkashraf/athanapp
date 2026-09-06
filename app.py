@@ -37,7 +37,7 @@ from PIL import Image
 
 
 EDMONTON_TZ = ZoneInfo("America/Edmonton")
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.1.2"
 GITHUB_REPO = "yusufkashraf/athanapp"
 GITHUB_RELEASES_API = (
     f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
